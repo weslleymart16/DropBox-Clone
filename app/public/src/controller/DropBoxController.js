@@ -1,170 +1,113 @@
-import { initializeApp } from "firebase/app";
+class DropBoxController {
+  constructor() {
+    this.btnSendFileEl = document.querySelector("#btn-send-file");
+    this.inputFilesEl = document.querySelector("#files");
+    this.snackModalEl = document.querySelector("#react-snackbar-root");
+    this.progressBarEl = this.snackModalEl?.querySelector(
+      ".mc-progress-bar-fg"
+    );
+    this.namefileEl = this.snackModalEl?.querySelector(".filename");
+    this.timeleftEl = this.snackModalEl?.querySelector(".timeleft");
+    this.initEvents();
+  }
 
-export class DropBoxController {
-    constructor(){
+  initEvents() {
+    this.btnSendFileEl?.addEventListener("click", (event) => {
+      this.inputFilesEl?.click();
+    });
 
-        this.btnSendFileEl = document.querySelector('#btn-send-file');
-        this.inputFilesEl = document.querySelector('#files');
-        this.snackModalEl = document.querySelector('#react-snackbar-root');
-        this.progressBarEl = this.snackModalEl.querySelector('.mc-progress-bar-fg');
-        this.namefileEl = this.snackModalEl.querySelector('.filename');
-        this.timeleftEl = this.snackModalEl.querySelector('.timeleft');
+    this.inputFilesEl?.addEventListener("change", (event) => {
+      this.uploadTask(event.target.files);
 
+      this.modalShow();
 
-        this.connectFirebase();
-        this.initEvents();
+      this.inputFilesEl.value = "";
+    });
+  }
 
+  modalShow(show = true) {
+    this.snackModalEl.style.display = show ? "block" : "none";
+  }
 
-    }
+  uploadTask(files) {
+    let promises = [];
 
-    connectFirebase(){
+    [...files].forEach((file) => {
+      promises.push(
+        new Promise((resolve, reject) => {
+          let ajax = new XMLHttpRequest();
 
-        let firebaseConfig = {
-            apiKey: "AIzaSyDWYTYN56G5WsWxm9GUk1MVxf2r8cTH_ig",
-            authDomain: "dropbox-wesmart-3ff9b.firebaseapp.com",
-            databaseURL: "https://dropbox-wesmart-3ff9b-default-rtdb.firebaseio.com",
-            projectId: "dropbox-wesmart-3ff9b",
-            storageBucket: "dropbox-wesmart-3ff9b.appspot.com",
-            messagingSenderId: "10015999419",
-            appId: "1:10015999419:web:02faf97e01621ca794f09e"
+          ajax.open("POST", "/upload");
+
+          ajax.onload = (event) => {
+            this.modalShow(false);
+
+            try {
+              resolve(JSON.parse(ajax.responseText));
+            } catch (e) {
+              reject(e);
+            }
           };
-          
-          // Initialize Firebase
-         let app = initializeApp(firebaseConfig);
-       
-    };
 
-    initEvents(){
+          ajax.onerror = (event) => {
+            this.modalShow(false);
 
-        this.btnSendFileEl.addEventListener('click', event =>{
+            reject(event);
+          };
 
-            this.inputFilesEl.click();
-        });
+          ajax.upload.onprogress = (event) => {
+            this.uploadProgress(event, file);
+          };
 
-        this.inputFilesEl.addEventListener('change', event =>{
+          let formData = new FormData();
 
-            this.uploadTask(event.target.files);
+          formData.append("input-file", file);
 
-            this.modalShow();
+          this.startUploadTime = Date.now();
 
-            this.inputFilesEl.value = '';
-        });
+          ajax.send(formData);
+        })
+      );
+    });
+
+    return Promise.all(promises);
+  }
+
+  uploadProgress(event, file) {
+    let timespent = Date.now() - this.startUploadTime;
+    let loaded = event.loaded;
+    let total = event.total;
+    let porcent = parseInt((loaded / total) * 100);
+    let timeleft = ((100 - porcent) * timespent) / porcent;
+
+    this.progressBarEl.style.width = porcent + "%";
+
+    this.namefileEl.innerHTML = file.name;
+    this.timeleftEl.innerHTML = this.formatTimeToHuman(timeleft);
+  }
+
+  formatTimeToHuman(duration) {
+    let seconds = parseInt((duration / 1000) % 60);
+    let minutes = parseInt((duration / (1000 * 60)) % 60);
+    let hours = parseInt((duration / (1000 * 60 * 60)) % 24);
+
+    if (hours > 0) {
+      return `${hours} horas, ${minutes} minutos e ${seconds} segundos`;
+    }
+    if (minutes > 0) {
+      return `${minutes} minutos e ${seconds} segundos`;
+    }
+    if (seconds > 0) {
+      return `${seconds} segundos`;
     }
 
-    modalShow(show = true){
+    return "";
+  }
 
-
-        this.snackModalEl.style.display = (show) ? 'block' : 'none';
-
-    }
-
-    uploadTask(files){
-
-        let promises = [];
-
-        [...files].forEach(file =>{
-
-            promises.push(new Promise((resolve, reject) =>{
-
-                let ajax = new XMLHttpRequest();
-
-                ajax.open('POST', '/upload');
-
-                ajax.onload = event =>{
-
-                    this.modalShow(false);
-
-                    try {
-
-                        resolve(JSON.parse(ajax.responseText));
-
-                    } catch (e) {
-
-                        reject(e);
-
-                    }
-
-                };
-
-                ajax.onerror = event =>{
-
-                    this.modalShow(false);
-
-                    reject(event);
-
-                };
-
-                ajax.upload.onprogress = event =>{
-
-                    this.uploadProgress(event, file);
-
-                };
-
-                let formData = new FormData();
-
-                formData.append('input-file', file);
-
-                this.startUploadTime = Date.now();
-
-                ajax.send(formData);
-
-                
-
-            }));
-
-        });
-
-        return Promise.all(promises);
-
-    }
-
-    uploadProgress(event, file){
-
-
-        let timespent = Date.now() - this.startUploadTime;
-        let loaded = event.loaded;
-        let total = event.total;
-        let porcent = parseInt((loaded / total) * 100);
-        let timeleft = ((100 - porcent) * timespent) / porcent;
-
-        this.progressBarEl.style.width = porcent+'%';
-
-        this.namefileEl.innerHTML = file.name;
-        this.timeleftEl.innerHTML = this.formatTimeToHuman(timeleft);
-
-    }
-
-    formatTimeToHuman(duration){
-
-        let seconds = parseInt((duration / 1000 % 60))
-        let minutes = parseInt((duration / (1000 * 60)) % 60)
-        let hours =   parseInt((duration / (1000 * 60 * 60)) % 24)
-
-        if(hours > 0) {
-
-            return `${hours} horas, ${minutes} minutos e ${seconds} segundos`;
-            
-        }
-        if(minutes > 0) {
-
-            return `${minutes} minutos e ${seconds} segundos`;
-
-        }
-        if(seconds > 0) {
-
-            return `${seconds} segundos`;
-
-        }
-
-        return '';
-    }
-
-    getFileIconView(file){
-
-        switch (file.type) {
-
-            case 'folder':
-                return `
+  getFileIconView(file) {
+    switch (file.type) {
+      case "folder":
+        return `
                     <svg width="160" height="160" viewBox="0 0 160 160" class="mc-icon-template-content tile__preview tile__preview--icon">
                         <title>content-folder-large</title>
                         <g fill="none" fill-rule="evenodd">
@@ -173,9 +116,10 @@ export class DropBoxController {
                         </g>
                     </svg>
                 `;
-                break;
+        break;
 
-                case 'application/pdf': return `
+      case "application/pdf":
+        return `
                             <li>
                                 <svg version="1.1" id="Camada_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="160px" height="160px" viewBox="0 0 160 160" enable-background="new 0 0 160 160" xml:space="preserve">
                                     <filter height="102%" width="101.4%" id="mc-content-unknown-large-a" filterUnits="objectBoundingBox" y="-.5%" x="-.7%">
@@ -212,10 +156,11 @@ export class DropBoxController {
                                     <div class="name text-center">PDF</div>
                             </li>
                 `;
-                break;
+        break;
 
-                case 'video/mp4':
-                case 'video/quicktime': return `
+      case "video/mp4":
+      case "video/quicktime":
+        return `
                             <li>
                                 <svg width="160" height="160" viewBox="0 0 160 160" class="mc-icon-template-content tile__preview tile__preview--icon">
                                     <title>content-video-large</title>
@@ -239,9 +184,9 @@ export class DropBoxController {
                 
                 `;
 
-                case 'audio/mp3':
-                case 'audio/ogg':
-                    return `
+      case "audio/mp3":
+      case "audio/ogg":
+        return `
                         <li>
                             <svg width="160" height="160" viewBox="0 0 160 160" class="mc-icon-template-content tile__preview tile__preview--icon">
                                 <title>content-audio-large</title>
@@ -264,13 +209,13 @@ export class DropBoxController {
                         </li>
                     `;
 
-                break;
+        break;
 
-                case 'image/jpeg':
-                case 'image/jpg':
-                case 'image/png':
-                case 'image/gif':
-                    return `
+      case "image/jpeg":
+      case "image/jpg":
+      case "image/png":
+      case "image/gif":
+        return `
                         <li>
                             <svg version="1.1" id="Camada_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="160px" height="160px" viewBox="0 0 160 160" enable-background="new 0 0 160 160" xml:space="preserve">
                                 <filter height="102%" width="101.4%" id="mc-content-unknown-large-a" filterUnits="objectBoundingBox" y="-.5%" x="-.7%">
@@ -313,9 +258,9 @@ export class DropBoxController {
                             <div class="name text-center">Imagem</div>
                         </li>
                     `;
-                break;
-                default:
-                    return `
+        break;
+      default:
+        return `
                         <li>
                             <svg width="160" height="160" viewBox="0 0 160 160" class="mc-icon-template-content tile__preview tile__preview--icon">
                                 <title>1357054_617b.jpg</title>
@@ -336,20 +281,16 @@ export class DropBoxController {
                             <div class="name text-center">Arquivo</div>
                         </li>
                     `;
+    }
+  }
 
-        }
-
-    };
-
-    getFileView(file){
-
-        return `
+  getFileView(file) {
+    return `
             <li>
                 ${this.getFileIconView(file)}
                 <div class="name text-center">${file.name}</div>
             </li>
         
         `;
-    }
-
+  }
 }
